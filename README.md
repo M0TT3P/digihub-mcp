@@ -1,49 +1,31 @@
 # digihub-mcp
 
-Model Context Protocol server for the [digihub.li](https://digihub.li) content API.
-
-Drop this into Claude (Desktop, Code, or any other MCP-aware client) and Claude can read and write **Stories**, **Solutions** and **Sessions** on digihub.li, plus upload images that get used as hero or inline media.
+MCP server for the [digihub.li](https://digihub.li) content API. Plug it into Claude (Desktop or Code) and Claude can read, create, update and delete **Stories**, **Solutions**, **Sessions**, and upload images that get used as hero or inline media.
 
 ---
 
-## What you'll need from the admin
+## You'll need from the admin
 
-Before you start, ask the digihub.li admin for two values:
+- `DIGIHUB_BASE_URL` — usually `https://digihub.li`
+- `DIGIHUB_API_TOKEN` — looks like `3|abc...`. Treat it like a password.
 
-- `DIGIHUB_BASE_URL` — e.g. `https://digihub.li`
-- `DIGIHUB_API_TOKEN` — looks like `3|abc...` (Sanctum personal access token)
-
-The token encodes what you're allowed to do (read / write / delete per resource type). Treat it like a password.
+Your abilities (read / write / delete per resource type) are baked into the token. Ask the admin for more if you hit a `403`.
 
 ---
 
-## Install
+## Configure your Claude client
 
-Until the npm package is published, install from git:
+Same JSON for Desktop and Code — only the file path differs:
 
-```bash
-git clone https://github.com/M0TT3P/digihub-mcp.git
-cd digihub-mcp
-npm install
-npm run build
-```
-
-The compiled entry point you point Claude at is `dist/index.js`.
-
----
-
-## Wire it into your client
-
-### Claude Desktop
-
-Open `claude_desktop_config.json` (on Windows: `%APPDATA%\Claude\`, on macOS: `~/Library/Application Support/Claude/`) and add:
+- **Desktop**: `claude_desktop_config.json` (Windows: `%APPDATA%\Claude\`, macOS: `~/Library/Application Support/Claude/`)
+- **Code**: `.mcp.json` in your project, or `claude mcp add`
 
 ```json
 {
   "mcpServers": {
     "digihub": {
-      "command": "node",
-      "args": ["C:/absolute/path/to/digihub-mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@stefan443/digihub-mcp@latest"],
       "env": {
         "DIGIHUB_BASE_URL": "https://digihub.li",
         "DIGIHUB_API_TOKEN": "PASTE_YOUR_TOKEN_HERE"
@@ -53,115 +35,58 @@ Open `claude_desktop_config.json` (on Windows: `%APPDATA%\Claude\`, on macOS: `~
 }
 ```
 
-Restart Claude.
-
-### Claude Code
-
-Use `claude mcp add` or add to `.mcp.json` in your project:
-
-```json
-{
-  "mcpServers": {
-    "digihub": {
-      "command": "node",
-      "args": ["/absolute/path/to/digihub-mcp/dist/index.js"],
-      "env": {
-        "DIGIHUB_BASE_URL": "https://digihub.li",
-        "DIGIHUB_API_TOKEN": "PASTE_YOUR_TOKEN_HERE"
-      }
-    }
-  }
-}
-```
-
-### First call
-
-Prompt Claude: *"Use the digihub `whoami` tool."* You should get back your name, email and the list of abilities your token has. If that works, you're set.
+Restart the client. First prompt: *"Use the digihub whoami tool."* You should see your name, email, and the abilities list.
 
 ---
 
 ## Tools
 
-### Stories
-
-| Tool | Purpose |
+| Resource | Tools |
 |---|---|
-| `list_stories` | Paginated list. Filters: `status`, `format`, `pillar_id`, `featured`, `per_page` (max 100), `page`. |
-| `get_story` | Fetch a single story by slug. |
-| `create_story` | Create a new story. |
-| `update_story` | PATCH an existing story by slug — only pass fields you want to change. |
-| `delete_story` | Soft-delete by slug (only if your token has `stories:delete`). |
+| Stories | `list_stories`, `get_story`, `create_story`, `update_story`, `delete_story` |
+| Solutions | `list_solutions`, `get_solution`, `create_solution`, `update_solution`, `delete_solution` |
+| Sessions (events) | `list_sessions`, `get_session`, `create_session`, `update_session`, `delete_session` |
+| Media | `upload_media` — pass `file` (local path) **or** `url` (server fetches it). Returns a `/storage/...` URL you put into `hero_image` or `media[].url`. |
+| Self | `whoami` |
 
-**Required on create:** `slug`, `title.de` or `title.en`, `lead.de` or `lead.en`, `format`.
+**Required fields on create:**
 
-Formats: `news`, `case_study`, `newsletter`, `use_case`, `success_story`.
+- Story: `slug`, `title.de`/`title.en`, `lead.de`/`lead.en`, `format` (`news`, `case_study`, `newsletter`, `use_case`, `success_story`)
+- Solution: `slug`, `title`, `summary`
+- Session: `slug`, `title`, `summary`, `format` (free text), `starts_at` (ISO date)
 
-### Solutions
+**Translations** (`title`, `lead`, `summary`, `body`) are objects with `de` and/or `en`. At least one must be present. `body` accepts Markdown.
 
-Same CRUD shape as Stories. Required on create: `slug`, `title`, `summary`. Optional: `body`, `hero_image`, `icon`, `business_areas`, `target_audiences`, `cta_link`, `sort_order`, `tag_slugs`.
-
-### Sessions (events)
-
-Same shape, plus: `format` (free text e.g. `workshop`, `training`, `hackathon`), `starts_at` (ISO datetime, required), `ends_at`, `location`, `capacity`, `register_url`.
-
-Session status: `draft`, `published`, `archived`, `cancelled`.
-
-### Media
-
-`upload_media` — provide either `file` (local file path) or `url` (server fetches it). Optional `subdir`: `uploads`, `stories`, `solutions`, `sessions`. Returns `{ url, extension, size }`. The returned `url` is what you put into `hero_image` or `media[].url` on a subsequent call.
-
-Allowed types: `jpg`, `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`, `pdf`. Max 25 MB.
-
-### Self
-
-`whoami` — returns `{ id, name, email, abilities }`. Useful first call to confirm everything works.
+**Filters on list_***: `status`, `format`, `pillar_id`, `featured`, `per_page` (≤ 100), `page`. `list_sessions` also takes `upcoming: true`.
 
 ---
 
 ## Reference data
 
-### Pillars
-
-| `pillar_id` | `key` | Title |
+| Pillar | id | key |
 |---|---|---|
-| `1` | `lab` | AI Lab |
-| `2` | `hub` | Coworking Hub |
-| `3` | `fund` | Förderprogramme / Funding Programs |
+| AI Lab | 1 | `lab` |
+| Coworking Hub | 2 | `hub` |
+| Förderprogramme | 3 | `fund` |
 
-Pass `pillar_id` (integer) on create/update. The pillar relation is auto-loaded into responses.
+Tag slugs by type (pass `tag_slugs: ["ai", "kmu"]`):
 
-### Tag types
+- **business_area**: `lab`, `hub`, `fund`
+- **audience**: `kmu`, `verwaltung`, `startup`, `finanzdienstleister`, `industrie`
+- **topic**: `ai`, `datenschutz`, …
 
-Tags are grouped by `type`:
-
-- `business_area` — `lab`, `hub`, `fund`
-- `audience` — `kmu`, `verwaltung`, `startup`, `finanzdienstleister`, `industrie`
-- `topic` — `ai`, `datenschutz`, …
-
-Pass `tag_slugs: ["ai", "kmu"]` to attach. Only existing slugs are accepted — the API rejects unknown ones.
-
-### Translations
-
-`title`, `lead`, `summary`, `body` are key-value maps with `de` and/or `en`. At least one of the two must be present on create. `body` accepts Markdown — it's rendered server-side.
+The API only accepts existing tag slugs.
 
 ---
 
-## End-to-end example
-
-Create a story with an image:
+## Example: a story with an image
 
 ```jsonc
-// 1. Upload an image (from a local file path)
-{
-  "tool": "upload_media",
-  "args": {
-    "file": "C:/Users/me/Pictures/hero.jpg",
-    "subdir": "stories"
-  }
-}
-// → { "url": "/storage/stories/a1b2c3d4e5.jpg", ... }
+// 1. Upload an image from a local path
+{ "tool": "upload_media", "args": { "file": "C:/Pictures/hero.jpg", "subdir": "stories" } }
+// → { "url": "/storage/stories/abc123.jpg" }
 
-// 2. Create the story, referencing that URL
+// 2. Create the story referencing it
 {
   "tool": "create_story",
   "args": {
@@ -169,36 +94,33 @@ Create a story with an image:
     "pillar_id": 1,
     "title": { "de": "KI-Workshop im Mai", "en": "AI Workshop in May" },
     "lead": { "de": "Drei Stunden Hands-on mit echten KMU-Use-Cases." },
-    "body": { "de": "# Über den Workshop\n\nMarkdown wird gerendert ..." },
+    "body": { "de": "# Worum geht's\n\nMarkdown wird gerendert ..." },
     "format": "news",
-    "hero_image": "/storage/stories/a1b2c3d4e5.jpg",
+    "hero_image": "/storage/stories/abc123.jpg",
     "author_name": "digihub.li Team",
     "tag_slugs": ["ai", "kmu"],
-    "featured": true,
     "status": "published",
     "published_at": "2026-05-01T08:00:00Z"
   }
 }
 ```
 
-You can also upload via remote URL — `upload_media` with `{ "url": "https://..." }` makes the server pull it and re-host. Same return shape.
+`upload_media` also accepts `{ "url": "https://..." }` — the server fetches the remote URL and re-hosts the file.
 
 ---
 
-## Common errors
+## When something doesn't work
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| `whoami` returns 401 | Token missing, wrong, or revoked | Ask the admin for a fresh token |
-| Tool returns "403" | Your token doesn't have that ability | Ask the admin to issue a token with the missing ability |
-| `create_story` returns 422 on `slug` | Slug already used or wrong shape | Slugs are lowercase letters, digits, and dashes only — and must be unique |
-| `create_story` returns 422 on `tag_slugs` | Unknown tag slug | Use only existing tags (see Reference data above) |
-| Image uploaded but not visible on the site | Browser or CDN cached the old page | Hard-refresh, or wait a couple minutes |
+| Error | What's wrong |
+|---|---|
+| `401` on `whoami` | Token missing or revoked — ask admin for a new one |
+| `403` on any tool | Your token doesn't have that ability — ask admin to widen it |
+| `422` on `slug` | Slug must be lowercase letters, digits, dashes only; and unique |
+| `422` on `tag_slugs` | Unknown tag — only use slugs from Reference data above |
+| Image uploaded but doesn't show on the site | Browser/CDN cache; hard-refresh or wait a few minutes |
 
-If something else goes wrong, post the tool name + arguments + error message to the admin.
+For anything else, send the admin the tool name, the arguments you used, and the error text.
 
 ---
-
-## License
 
 MIT — see [LICENSE](LICENSE).
