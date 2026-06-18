@@ -2,34 +2,24 @@
 
 Model Context Protocol server for the [digihub.li](https://digihub.li) content API.
 
-Lets Claude (Desktop, Code, or any other MCP-aware client) read and write **Stories**, **Solutions** and **Sessions** on the digihub.li site, and upload images that can be used as hero images or inline media.
-
-> **Status:** alpha — works against production, but the package isn't on the npm registry yet. Install from git for now (see below). Once we tag a release the published version takes over.
+Drop this into Claude (Desktop, Code, or any other MCP-aware client) and Claude can read and write **Stories**, **Solutions** and **Sessions** on digihub.li, plus upload images that get used as hero or inline media.
 
 ---
 
-## Quick start
+## What you'll need from the admin
 
-### 1. Get a token
+Before you start, ask the digihub.li admin for two values:
 
-API access is gated by a Sanctum personal access token issued by an admin on the digihub.li site. Ask the digihub-admin (Stefan) for one, or generate it yourself if you have shell access to the Dokploy container:
+- `DIGIHUB_BASE_URL` — e.g. `https://digihub.li`
+- `DIGIHUB_API_TOKEN` — looks like `3|abc...` (Sanctum personal access token)
 
-```bash
-php artisan api:token make you@example.com \
-    --name="claude-mcp" \
-    --ability=stories:read --ability=stories:write \
-    --ability=solutions:read --ability=solutions:write \
-    --ability=sessions:read --ability=sessions:write \
-    --ability=media:write
-```
+The token encodes what you're allowed to do (read / write / delete per resource type). Treat it like a password.
 
-The plain-text token is shown **once**. Copy it immediately into your password manager. Format: `<id>|<secret>` — e.g. `2|abcDEF...`.
+---
 
-`--ability=*` grants every permission. For a contributor who should only push news posts, narrow to `stories:read stories:write media:write`.
+## Install
 
-### 2. Install the MCP server
-
-Until the npm package is published, clone the repo:
+Until the npm package is published, install from git:
 
 ```bash
 git clone https://github.com/M0TT3P/digihub-mcp.git
@@ -38,16 +28,15 @@ npm install
 npm run build
 ```
 
-The compiled entry point is `dist/index.js`. Once we publish:
+The compiled entry point you point Claude at is `dist/index.js`.
 
-```bash
-# future
-npx -y @m0tt3p/digihub-mcp@latest
-```
+---
 
-### 3. Wire it into your client
+## Wire it into your client
 
-**Claude Desktop** (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+### Claude Desktop
+
+Open `claude_desktop_config.json` (on Windows: `%APPDATA%\Claude\`, on macOS: `~/Library/Application Support/Claude/`) and add:
 
 ```json
 {
@@ -57,14 +46,18 @@ npx -y @m0tt3p/digihub-mcp@latest
       "args": ["C:/absolute/path/to/digihub-mcp/dist/index.js"],
       "env": {
         "DIGIHUB_BASE_URL": "https://digihub.li",
-        "DIGIHUB_API_TOKEN": "<paste-your-token>"
+        "DIGIHUB_API_TOKEN": "PASTE_YOUR_TOKEN_HERE"
       }
     }
   }
 }
 ```
 
-**Claude Code** (`.mcp.json` in your project, or via `claude mcp add`):
+Restart Claude.
+
+### Claude Code
+
+Use `claude mcp add` or add to `.mcp.json` in your project:
 
 ```json
 {
@@ -74,37 +67,30 @@ npx -y @m0tt3p/digihub-mcp@latest
       "args": ["/absolute/path/to/digihub-mcp/dist/index.js"],
       "env": {
         "DIGIHUB_BASE_URL": "https://digihub.li",
-        "DIGIHUB_API_TOKEN": "<paste-your-token>"
+        "DIGIHUB_API_TOKEN": "PASTE_YOUR_TOKEN_HERE"
       }
     }
   }
 }
 ```
 
-Restart the client, then prompt: *"Use digihub.whoami and tell me what abilities the token has."* If you see your name and the ability list, you're live.
+### First call
+
+Prompt Claude: *"Use the digihub `whoami` tool."* You should get back your name, email and the list of abilities your token has. If that works, you're set.
 
 ---
 
-## Environment variables
-
-| Variable | Required | Example | Notes |
-|---|---|---|---|
-| `DIGIHUB_BASE_URL` | yes | `https://digihub.li` | Site root, no trailing slash needed. For the staging instance use `https://digihub.laggner.li`. |
-| `DIGIHUB_API_TOKEN` | yes | `2|abc...` | Sanctum token from `php artisan api:token make`. |
-
----
-
-## Tools exposed
+## Tools
 
 ### Stories
 
-| Tool | What it does |
+| Tool | Purpose |
 |---|---|
 | `list_stories` | Paginated list. Filters: `status`, `format`, `pillar_id`, `featured`, `per_page` (max 100), `page`. |
 | `get_story` | Fetch a single story by slug. |
 | `create_story` | Create a new story. |
-| `update_story` | PATCH an existing story (slug-based). Only pass fields you want to change. |
-| `delete_story` | Soft-delete by slug. |
+| `update_story` | PATCH an existing story by slug — only pass fields you want to change. |
+| `delete_story` | Soft-delete by slug (only if your token has `stories:delete`). |
 
 **Required on create:** `slug`, `title.de` or `title.en`, `lead.de` or `lead.en`, `format`.
 
@@ -112,32 +98,23 @@ Formats: `news`, `case_study`, `newsletter`, `use_case`, `success_story`.
 
 ### Solutions
 
-Same shape as Stories, minus `format`/`related_links`, plus `summary`, `business_areas`, `target_audiences`, `cta_link`, `icon`, `sort_order`.
+Same CRUD shape as Stories. Required on create: `slug`, `title`, `summary`. Optional: `body`, `hero_image`, `icon`, `business_areas`, `target_audiences`, `cta_link`, `sort_order`, `tag_slugs`.
 
 ### Sessions (events)
 
-| Tool | What it does |
-|---|---|
-| `list_sessions` | Filters: `status`, `format`, `pillar_id`, `upcoming` (true → starts_at ≥ now). |
-| `get_session`, `create_session`, `update_session`, `delete_session` | CRUD by slug. |
+Same shape, plus: `format` (free text e.g. `workshop`, `training`, `hackathon`), `starts_at` (ISO datetime, required), `ends_at`, `location`, `capacity`, `register_url`.
 
-**Required on create:** `slug`, `title`, `summary`, `format`, `starts_at` (ISO datetime).
-
-Session status enum: `draft`, `published`, `archived`, `cancelled`.
+Session status: `draft`, `published`, `archived`, `cancelled`.
 
 ### Media
 
-| Tool | What it does |
-|---|---|
-| `upload_media` | Provide `file` (local path) or `url` (server fetches it). Optional `subdir`: `uploads`, `stories`, `solutions`, `sessions`. Returns `{ url, extension, size }`. The `url` you get back is what you put into `hero_image` or `media[].url` on a subsequent call. |
+`upload_media` — provide either `file` (local file path) or `url` (server fetches it). Optional `subdir`: `uploads`, `stories`, `solutions`, `sessions`. Returns `{ url, extension, size }`. The returned `url` is what you put into `hero_image` or `media[].url` on a subsequent call.
 
-Allowed file types: `jpg`, `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`, `pdf`. Max 25 MB.
+Allowed types: `jpg`, `jpeg`, `png`, `webp`, `avif`, `gif`, `svg`, `pdf`. Max 25 MB.
 
 ### Self
 
-| Tool | What it does |
-|---|---|
-| `whoami` | Returns `{ id, name, email, abilities }`. Useful first call to verify the token and see what you're allowed to do. |
+`whoami` — returns `{ id, name, email, abilities }`. Useful first call to confirm everything works.
 
 ---
 
@@ -163,12 +140,18 @@ Tags are grouped by `type`:
 
 Pass `tag_slugs: ["ai", "kmu"]` to attach. Only existing slugs are accepted — the API rejects unknown ones.
 
+### Translations
+
+`title`, `lead`, `summary`, `body` are key-value maps with `de` and/or `en`. At least one of the two must be present on create. `body` accepts Markdown — it's rendered server-side.
+
 ---
 
-## Example: create a story end-to-end
+## End-to-end example
+
+Create a story with an image:
 
 ```jsonc
-// 1. Upload an image (from local path)
+// 1. Upload an image (from a local file path)
 {
   "tool": "upload_media",
   "args": {
@@ -186,7 +169,7 @@ Pass `tag_slugs: ["ai", "kmu"]` to attach. Only existing slugs are accepted — 
     "pillar_id": 1,
     "title": { "de": "KI-Workshop im Mai", "en": "AI Workshop in May" },
     "lead": { "de": "Drei Stunden Hands-on mit echten KMU-Use-Cases." },
-    "body": { "de": "# Über den Workshop\n\nMarkdown wird auf der Story-Detail-Seite gerendert ..." },
+    "body": { "de": "# Über den Workshop\n\nMarkdown wird gerendert ..." },
     "format": "news",
     "hero_image": "/storage/stories/a1b2c3d4e5.jpg",
     "author_name": "digihub.li Team",
@@ -198,52 +181,21 @@ Pass `tag_slugs: ["ai", "kmu"]` to attach. Only existing slugs are accepted — 
 }
 ```
 
-Translations are key-value maps with `de` and/or `en`. At least one of the two must be present on create. `body` accepts Markdown — it's rendered server-side via Laravel's CommonMark.
+You can also upload via remote URL — `upload_media` with `{ "url": "https://..." }` makes the server pull it and re-host. Same return shape.
 
 ---
 
-## Abilities
-
-Abilities are `{resource}:{operation}`:
-
-- `stories:read`, `stories:write`, `stories:delete`
-- `solutions:read`, `solutions:write`, `solutions:delete`
-- `sessions:read`, `sessions:write`, `sessions:delete`
-- `media:write`
-
-Each tool checks its own ability — `list_stories` requires `stories:read`, `create_story` requires `stories:write`, etc. Updates also require `stories:write`. Soft-deletes require `stories:delete` (separate from write so editors can be allowed to publish but not destroy).
-
-Issue tokens with only the abilities the holder actually needs.
-
----
-
-## Errors you might hit
+## Common errors
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `whoami` returns 401 | Token missing or revoked | Generate a new token, update env var |
-| Tool returns "403" | Token lacks the ability | Generate a new token with the missing ability, or ask admin |
-| `create_story` returns 422 with `slug` | Slug not unique or wrong shape | Slugs are lowercase letters, digits, and dashes only |
-| `create_story` returns 422 with `tag_slugs` | Unknown tag slug | Use only existing tags (see Reference data above), or create the tag in the admin first |
-| Image is uploaded but doesn't appear | Cached page on Cloudflare | Hard-refresh or wait for CF edge cache to expire (usually < 5 min) |
+| `whoami` returns 401 | Token missing, wrong, or revoked | Ask the admin for a fresh token |
+| Tool returns "403" | Your token doesn't have that ability | Ask the admin to issue a token with the missing ability |
+| `create_story` returns 422 on `slug` | Slug already used or wrong shape | Slugs are lowercase letters, digits, and dashes only — and must be unique |
+| `create_story` returns 422 on `tag_slugs` | Unknown tag slug | Use only existing tags (see Reference data above) |
+| Image uploaded but not visible on the site | Browser or CDN cached the old page | Hard-refresh, or wait a couple minutes |
 
----
-
-## Local development
-
-```bash
-git clone https://github.com/M0TT3P/digihub-mcp.git
-cd digihub-mcp
-npm install
-npm run dev          # tsc in watch mode
-
-# in another shell
-export DIGIHUB_BASE_URL=https://digihub.li
-export DIGIHUB_API_TOKEN=...
-node dist/index.js
-```
-
-The server speaks MCP over stdio, so connect it to a real client (Claude Desktop/Code, MCP Inspector) rather than poking it with curl.
+If something else goes wrong, post the tool name + arguments + error message to the admin.
 
 ---
 
