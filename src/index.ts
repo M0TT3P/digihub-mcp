@@ -57,7 +57,7 @@ const tools = [
 ];
 
 const server = new Server(
-    { name: 'digihub-mcp', version: '0.1.2' },
+    { name: 'digihub-mcp', version: '0.1.3' },
     { capabilities: { tools: {} } },
 );
 

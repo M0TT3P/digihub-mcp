@@ -4,12 +4,23 @@ MCP server for the [digihub.li](https://digihub.li) content API. Plug it into Cl
 
 ---
 
-## You'll need from the admin
+## Requirements
 
-- `DIGIHUB_BASE_URL` — usually `https://digihub.li`
-- `DIGIHUB_API_TOKEN` — looks like `3|abc...`. Treat it like a password.
+| | What | Where |
+|---|---|---|
+| 1 | **Node.js 18+** (LTS recommended) | <https://nodejs.org/> — default installer is fine. Provides `node`, `npm`, `npx`. |
+| 2 | **An MCP-aware client** | [Claude Desktop](https://claude.ai/download), Claude Code, or any other MCP client. |
+| 3 | **A digihub.li API token** | Ask the admin. Looks like `3|abc...`. |
+| 4 | **The base URL** | Usually `https://digihub.li`. The admin tells you if different. |
 
-Your abilities (read / write / delete per resource type) are baked into the token. Ask the admin for more if you hit a `403`.
+To check Node.js is installed:
+
+```bash
+node --version   # should print v18.x or higher
+npx --version    # should print 9.x or higher
+```
+
+If `npx` isn't found, install Node.js first. **Claude Desktop won't bundle one for you.**
 
 ---
 
@@ -113,6 +124,7 @@ The API only accepts existing tag slugs.
 
 | Error | What's wrong |
 |---|---|
+| Server doesn't appear in Claude / logs say `spawn npx ENOENT` | Node.js isn't installed or Claude can't find `npx` on PATH. Install Node.js, restart Claude. On macOS with Homebrew, use the absolute path (`/opt/homebrew/bin/npx` on Apple Silicon, `/usr/local/bin/npx` on Intel — `which npx` shows yours). |
 | `401` on `whoami` | Token missing or revoked — ask admin for a new one |
 | `403` on any tool | Your token doesn't have that ability — ask admin to widen it |
 | `422` on `slug` | Slug must be lowercase letters, digits, dashes only; and unique |
