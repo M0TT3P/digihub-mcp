@@ -1,0 +1,37 @@
+{
+  "name": "@m0tt3p/digihub-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the digihub.li content API (Stories, Solutions, Sessions, Media).",
+  "license": "MIT",
+  "author": "Stefan Laggner",
+  "homepage": "https://github.com/M0TT3P/digihub-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/M0TT3P/digihub-mcp.git"
+  },
+  "type": "module",
+  "bin": {
+    "digihub-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
