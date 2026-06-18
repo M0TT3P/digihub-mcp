@@ -1,6 +1,6 @@
 {
-  "name": "@m0tt3p/digihub-mcp",
-  "version": "0.1.0",
+  "name": "@stefan443/digihub-mcp",
+  "version": "0.1.1",
   "description": "MCP server for the digihub.li content API (Stories, Solutions, Sessions, Media).",
   "license": "MIT",
   "author": "Stefan Laggner",
